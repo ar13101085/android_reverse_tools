@@ -1,0 +1,16 @@
+# APK Signature Bypass Configuration
+# Source APK to get signature from
+apk.signed=/Users/arifur/Downloads/aostv_1.0.0_rb.apk
+
+# APK to process
+apk.src=/Users/arifur/Downloads/aostv_1.0.0_rb.apk
+
+# Output APK path
+apk.out=/Users/arifur/Downloads/aostv_1.0.0_rb_bypass.apk
+
+# Signing configuration
+sign.enable=true
+sign.file=test.keystore
+sign.password=123456
+sign.alias=user
+sign.aliasPassword=654321
