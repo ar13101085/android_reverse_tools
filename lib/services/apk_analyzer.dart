@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import '../models/apk_info.dart';
 import '../utils/config_manager.dart';
+import '../utils/file_access_manager.dart';
 import 'command_executor.dart';
 
 class ApkAnalyzer {
@@ -92,22 +94,58 @@ class ApkAnalyzer {
     onProgress('Decompiling APK with APKTool...');
     onProgress('APKTool path: ${ConfigManager.apkToolPath}');
     
-    // Check if APKTool exists
-    final apkToolFile = File(ConfigManager.apkToolPath);
-    if (!await apkToolFile.exists()) {
-      throw Exception('APKTool not found at: ${ConfigManager.apkToolPath}');
+    // Check if APKTool exists in app directory first
+    var apkToolPath = ConfigManager.apkToolPath;
+    final apkToolFile = File(apkToolPath);
+    var toolExists = await apkToolFile.exists();
+    
+    if (!toolExists) {
+      onProgress('APKTool not found in app directory, checking configured directory...');
+      
+      // Check if we have access to the tools directory
+      if (!FileAccessManager.hasAccess(apkToolPath)) {
+        onProgress('Requesting access to tools directory...');
+        
+        // Request access to tools directory
+        final granted = await FileAccessManager.requestDirectoryAccess('tools-directory');
+        
+        if (!granted) {
+          throw Exception('Access denied to tools directory. Please grant access to use APKTool.');
+        }
+      }
+      
+      // Check again after access grant
+      toolExists = await apkToolFile.exists();
+      if (!toolExists) {
+        // Try to copy the tool to app directory
+        onProgress('Attempting to copy APKTool to app directory...');
+        final appToolsDir = await _getAppToolsDirectory();
+        final destPath = path.join(appToolsDir, 'apktool.jar');
+        
+        final copied = await FileAccessManager.copyFileWithAccess(
+          apkToolPath,
+          destPath,
+        );
+        
+        if (copied) {
+          apkToolPath = destPath;
+          onProgress('APKTool copied to app directory');
+        } else {
+          throw Exception('APKTool not found and could not be copied');
+        }
+      }
     }
     
-    onProgress('APKTool file exists: ${await apkToolFile.exists()}');
-    onProgress('APKTool file size: ${(await apkToolFile.stat()).size} bytes');
+    onProgress('APKTool file exists: true');
+    onProgress('APKTool file size: ${(await File(apkToolPath).stat()).size} bytes');
     
     // Try alternative execution method using Process.start
     try {
       final arguments = ['d', apkPath, '-o', outputDir, '-f'];
-      onProgress('Executing: java -jar ${ConfigManager.apkToolPath} ${arguments.join(' ')}');
+      onProgress('Executing: java -jar $apkToolPath ${arguments.join(' ')}');
       
       // First try the original method
-      final result = await CommandExecutor.executeJarCommand(ConfigManager.apkToolPath, arguments);
+      final result = await CommandExecutor.executeJarCommand(apkToolPath, arguments);
       
       if (result.exitCode != 0) {
         onProgress('Exit code: ${result.exitCode}');
@@ -118,7 +156,7 @@ class ApkAnalyzer {
         onProgress('Trying alternative execution method...');
         final process = await Process.start(
           '/usr/bin/java',
-          ['-jar', ConfigManager.apkToolPath] + arguments,
+          ['-jar', apkToolPath] + arguments,
           workingDirectory: null,
           runInShell: false,
         );
@@ -138,8 +176,21 @@ class ApkAnalyzer {
       onProgress('APK decompiled successfully');
     } catch (e) {
       onProgress('Exception during decompilation: $e');
-      throw e;
+      rethrow;
     }
+  }
+  
+  Future<String> _getAppToolsDirectory() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final toolsDir = path.join(documentsDir.path, 'tools');
+    
+    // Create directory if it doesn't exist
+    final dir = Directory(toolsDir);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    
+    return toolsDir;
   }
 
   Future<ApkInfo> _extractApkInfo(String decompileDir, Function(String) onProgress) async {

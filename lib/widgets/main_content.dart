@@ -153,6 +153,9 @@ class _MainContentState extends State<MainContent> {
 
   Future<void> _analyzeApk(String apkPath, bool freshExtraction) async {
     try {
+      // Reload configuration to ensure we have the latest values
+      await ConfigManager.reloadEnv();
+      
       _analyzer = await ApkAnalyzer.create();
       
       final apkInfo = await _analyzer!.analyzeApk(apkPath, (progress) {

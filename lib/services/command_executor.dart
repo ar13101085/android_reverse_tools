@@ -23,24 +23,70 @@ class CommandExecutor {
       }
       
       // Add Android SDK paths if ANDROID_HOME is set
-      final androidHome = environment['ANDROID_HOME'] ?? 
-                         environment['ANDROID_SDK_ROOT'] ?? 
-                         '/Users/arifur/Library/Android/sdk';
+      String? androidHome = environment['ANDROID_HOME'] ?? 
+                           environment['ANDROID_SDK_ROOT'];
       
-      paths.add('$androidHome/platform-tools');
-      paths.add('$androidHome/tools');
-      paths.add('$androidHome/tools/bin');
+      // If no Android SDK environment variable is set, try common locations
+      if (androidHome == null || androidHome.isEmpty) {
+        if (Platform.isMacOS) {
+          // Try common macOS locations
+          final possiblePaths = [
+            '${environment['HOME']}/Library/Android/sdk',
+            '/usr/local/share/android-sdk',
+            '/opt/android-sdk',
+          ];
+          for (final path in possiblePaths) {
+            if (Directory(path).existsSync()) {
+              androidHome = path;
+              break;
+            }
+          }
+        } else if (Platform.isLinux) {
+          // Try common Linux locations
+          final possiblePaths = [
+            '${environment['HOME']}/Android/Sdk',
+            '/usr/local/android-sdk',
+            '/opt/android-sdk',
+          ];
+          for (final path in possiblePaths) {
+            if (Directory(path).existsSync()) {
+              androidHome = path;
+              break;
+            }
+          }
+        } else if (Platform.isWindows) {
+          // Try common Windows locations
+          final possiblePaths = [
+            '${environment['LOCALAPPDATA']}\\Android\\Sdk',
+            '${environment['PROGRAMFILES']}\\Android\\android-sdk',
+            'C:\\android-sdk',
+          ];
+          for (final path in possiblePaths) {
+            if (Directory(path).existsSync()) {
+              androidHome = path;
+              break;
+            }
+          }
+        }
+      }
       
-      // Check for build-tools and add the latest version
-      final buildToolsDir = Directory('$androidHome/build-tools');
-      if (buildToolsDir.existsSync()) {
-        final versions = buildToolsDir.listSync()
-            .where((entity) => entity is Directory)
-            .map((dir) => dir.path.split('/').last)
-            .toList()
-          ..sort();
-        if (versions.isNotEmpty) {
-          paths.add('$androidHome/build-tools/${versions.last}');
+      // Only add Android SDK paths if we found it
+      if (androidHome != null && androidHome.isNotEmpty) {
+        paths.add('$androidHome/platform-tools');
+        paths.add('$androidHome/tools');
+        paths.add('$androidHome/tools/bin');
+        
+        // Check for build-tools and add the latest version
+        final buildToolsDir = Directory('$androidHome/build-tools');
+        if (buildToolsDir.existsSync()) {
+          final versions = buildToolsDir.listSync()
+              .whereType<Directory>()
+              .map((dir) => dir.path.split('/').last)
+              .toList()
+            ..sort();
+          if (versions.isNotEmpty) {
+            paths.add('$androidHome/build-tools/${versions.last}');
+          }
         }
       }
       

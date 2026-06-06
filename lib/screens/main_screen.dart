@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/main_content.dart';
 import '../widgets/console_panel.dart';
+import '../widgets/console_output.dart';
 
 class MainScreen extends StatefulWidget {
   @override
@@ -13,6 +14,21 @@ class _MainScreenState extends State<MainScreen> {
   String? _currentApkPath;
   String? _decompiledDirectory;
   
+  @override
+  void initState() {
+    super.initState();
+    // Connect ConsoleLogger to the existing console output
+    ConsoleLogger.setConsoleOutputCallback(_addToConsole);
+    
+    // Load any existing logs from ConsoleLogger
+    final existingLogs = ConsoleLogger.getLogs();
+    if (existingLogs.isNotEmpty) {
+      setState(() {
+        _consoleOutput = existingLogs.join('\n') + '\n';
+      });
+    }
+  }
+  
   void _addToConsole(String text) {
     setState(() {
       _consoleOutput += text + '\n';
@@ -22,6 +38,7 @@ class _MainScreenState extends State<MainScreen> {
   void _clearConsole() {
     setState(() {
       _consoleOutput = '';
+      ConsoleLogger.clearLogs();
     });
   }
   

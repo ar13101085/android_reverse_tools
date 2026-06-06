@@ -102,7 +102,8 @@ class _SideBarState extends State<SideBar> {
     
     if (result == true) {
       widget.onConsoleOutput('Settings updated successfully');
-      // Optionally trigger a refresh or reinitialize the app
+      // The settings dialog already reloaded ConfigManager when saving
+      // All subsequent operations will use the updated values
     } else {
       widget.onConsoleOutput('Settings dialog closed without saving');
     }
@@ -110,6 +111,9 @@ class _SideBarState extends State<SideBar> {
 
   void _buildApk() async {
     try {
+      // Reload configuration to ensure we have the latest values
+      await ConfigManager.reloadEnv();
+      
       if (widget.decompiledDirectory == null) {
         widget.onConsoleOutput('No APK has been decompiled yet');
         _showAlert(

@@ -8,6 +8,7 @@ class ToolSetup {
   static late String _appToolsDir;
   
   static String get appToolsDir => _appToolsDir;
+  static bool get isInitialized => _isInitialized;
   
   static Future<void> initializeTools() async {
     if (_isInitialized) return;
